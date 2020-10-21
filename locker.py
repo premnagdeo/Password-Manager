@@ -8,13 +8,14 @@ import random
 from passwordgenerator import pwgenerator
 import re
 import pyperclip
+from hashlib import md5, sha256, sha512, pbkdf2_hmac
+import binascii
 
 # TODO save the master key
 # TODO retrieve the master key
 # TODO check master key
 # TODO save passwords
 # TODO retrieve passwords
-
 
 
 def start_prompt():
@@ -60,7 +61,7 @@ def check_password_strength(password):
     symbol_error = re.search(r"[ !#$%&'()*+,-./[\\\]^_`{|}~" + r'"]', password) is None
 
     # overall result
-    password_ok = not(length_error or digit_error or uppercase_error or lowercase_error or symbol_error)
+    password_ok = not (length_error or digit_error or uppercase_error or lowercase_error or symbol_error)
 
     return password_ok
 
@@ -119,7 +120,56 @@ def generate_key():
     return pwgenerator.generate()
 
 
-def save_master_key(master_key):
+hashing_algorithms = {
+                        '$1': 'md5',
+                        '$2': 'sha256',
+                        '$3': 'sha512'
+                    }
+
+def save_master_key(master_key, algo='$3'):
+
+    hashing_algo = hashing_algorithms[algo]
+
+    salt = secrets.token_bytes(16)
+    # password = salt + master_key
+
+    # # Sample: hashed_password = sha512(password.encode()).hexdigest()
+    # execute_hashing = hashing_algo + '("' + password + '".encode()).hexdigest()'
+    # # Execute the hashing
+    # hashed_password = eval(execute_hashing)
+    #
+    import time
+    t1 = time.time()
+    if algo == '$1':
+        # MD5
+        hashed_password = pbkdf2_hmac('md5', master_key.encode(), salt, 100000)
+    elif algo == '$2':
+        # SHA 256
+        hashed_password = pbkdf2_hmac('sha256', master_key.encode(), salt, 100000)
+    elif algo == '$3':
+        # SHA 512
+        hashed_password = pbkdf2_hmac('sha512', master_key.encode(), salt, 100000)
+    else:
+        print('Wrong algo parameter passed')
+        quit()
+
+    print(hashed_password)
+    hashed_password = binascii.hexlify(hashed_password)
+    salt = binascii.hexlify(salt)
+    print(hashed_password)
+    total = ':'.join((algo, salt.decode(), hashed_password.decode()))
+
+    print("SHUTI THE TIME TAKEN FOR HASHING = ", time.time() - t1)
+
+
+    print("Final (to be saved to file) =", total)
+    # Save salt+hash
+
+
+    # Retrieve salt+hash
+
+
+
     pass
 
 
@@ -153,7 +203,6 @@ def create_master_key():
     print("IMPORTANT: It is critical that you never forget this password")
     print(Separator())
 
-
     questions = ([
         {
             'type': 'confirm',
@@ -164,7 +213,7 @@ def create_master_key():
     ])
 
     answer = prompt(questions)
-    if answer['confirm']:
+    if answer['copy_to_clipboard']:
         pyperclip.copy(master_key)
         print("Master Key copied to clipboard")
 
